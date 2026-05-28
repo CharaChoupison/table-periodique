@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tableau periodique API</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --ink: #1f2937;
+        --muted: #657184;
+        --line: #d9dee7;
+        --accent: #0f766e;
+        --accent-dark: #115e59;
+        --soft: #e8f4f2;
+        --error: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .wrap {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.15;
+      }
+
+      .status {
+        color: var(--accent-dark);
+        background: var(--soft);
+        border: 1px solid #b7ded8;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      main {
+        padding: 24px 0 36px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1.2fr 0.9fr auto;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      input,
+      select,
+      button {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font: inherit;
+      }
+
+      input,
+      select {
+        width: 100%;
+        background: var(--surface);
+        color: var(--ink);
+        padding: 0 12px;
+      }
+
+      button {
+        cursor: pointer;
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+        padding: 0 16px;
+        font-weight: 700;
+      }
+
+      button:hover {
+        background: var(--accent-dark);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .count {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .element {
+        min-height: 116px;
+        display: grid;
+        gap: 5px;
+        align-content: start;
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--accent);
+        border-radius: 8px;
+        background: #fbfcfd;
+        padding: 10px;
+        text-align: left;
+      }
+
+      .element:hover {
+        border-color: var(--accent);
+      }
+
+      .atomic {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .symbol {
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .name {
+        overflow-wrap: anywhere;
+        font-weight: 700;
+      }
+
+      .class-name {
+        color: var(--muted);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+
+      .details {
+        padding: 16px;
+      }
+
+      .details-empty {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .detail-symbol {
+        font-size: 54px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .detail-name {
+        margin: 6px 0 16px;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      dl {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 0;
+      }
+
+      dt {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      dd {
+        margin: 3px 0 0;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .message {
+        padding: 14px 16px;
+        color: var(--error);
+      }
+
+      @media (max-width: 860px) {
+        .controls,
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .status {
+          white-space: normal;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap topbar">
+        <h1>Tableau periodique</h1>
+        <div class="status" id="apiStatus">API: verification...</div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="controls" aria-label="Tester les routes">
+        <label>
+          Chercher par numero ou symbole
+          <input id="searchInput" type="search" placeholder="Ex: 26, Fe, O">
+        </label>
+
+        <label>
+          Filtrer par classe
+          <select id="classSelect">
+            <option value="">Toutes les classes</option>
+          </select>
+        </label>
+
+        <button id="resetButton" type="button">Reinitialiser</button>
+      </section>
+
+      <section class="layout">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Elements</h2>
+            <span class="count" id="resultCount">0 element</span>
+          </div>
+          <div id="message" class="message" hidden></div>
+          <div id="grid" class="grid"></div>
+        </div>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <h2>Detail</h2>
+          </div>
+          <div id="details" class="details">
+            <p class="details-empty">Selectionne un element pour voir les informations de la route.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const grid = document.querySelector("#grid");
+      const details = document.querySelector("#details");
+      const searchInput = document.querySelector("#searchInput");
+      const classSelect = document.querySelector("#classSelect");
+      const resetButton = document.querySelector("#resetButton");
+      const resultCount = document.querySelector("#resultCount");
+      const apiStatus = document.querySelector("#apiStatus");
+      const message = document.querySelector("#message");
+      const apiBaseUrl = window.location.port === "3000" ? "" : "http://127.0.0.1:3000";
+
+      let allElements = [];
+
+      async function fetchJson(url) {
+        const response = await fetch(`${apiBaseUrl}${url}`);
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          throw new Error("L'API ne repond pas en JSON. Lance python3 app.py puis ouvre http://127.0.0.1:3000");
+        }
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Erreur API");
+        }
+
+        return payload;
+      }
+
+      function showMessage(text) {
+        message.textContent = text;
+        message.hidden = !text;
+      }
+
+      function renderGrid(elements) {
+        resultCount.textContent = `${elements.length} element${elements.length > 1 ? "s" : ""}`;
+        grid.innerHTML = "";
+
+        elements.forEach((element) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "element";
+          button.innerHTML = `
+            <span class="atomic">#${element.atomicNumber}</span>
+            <span class="symbol">${element.symbol}</span>
+            <span class="name">${element.name}</span>
+            <span class="class-name">${element.class}</span>
+          `;
+          button.addEventListener("click", () => renderDetails(element));
+          grid.appendChild(button);
+        });
+      }
+
+      function renderDetails(element) {
+        details.innerHTML = `
+          <div class="detail-symbol">${element.symbol}</div>
+          <div class="detail-name">${element.name}</div>
+          <dl>
+            <div><dt>Numero atomique</dt><dd>${element.atomicNumber}</dd></div>
+            <div><dt>Masse atomique</dt><dd>${element.atomicMass}</dd></div>
+            <div><dt>Periode</dt><dd>${element.period}</dd></div>
+            <div><dt>Groupe</dt><dd>${element.group ?? "N/A"}</dd></div>
+            <div><dt>Categorie</dt><dd>${element.category}</dd></div>
+            <div><dt>Classe</dt><dd>${element.class}</dd></div>
+          </dl>
+        `;
+      }
+
+      function fillClasses() {
+        const classes = [...new Set(allElements.map((element) => element.class))].sort();
+        classes.forEach((className) => {
+          const option = document.createElement("option");
+          option.value = className;
+          option.textContent = className;
+          classSelect.appendChild(option);
+        });
+      }
+
+      async function loadAllElements() {
+        try {
+          const payload = await fetchJson("/elements");
+          allElements = payload.data;
+          apiStatus.textContent = "API: connectee";
+          fillClasses();
+          renderGrid(allElements);
+          showMessage("");
+        } catch (error) {
+          apiStatus.textContent = "API: erreur";
+          showMessage(error.message);
+        }
+      }
+
+      async function searchElement() {
+        const value = searchInput.value.trim();
+        classSelect.value = "";
+
+        if (!value) {
+          renderGrid(allElements);
+          showMessage("");
+          return;
+        }
+
+        try {
+          const payload = await fetchJson(`/elements/${encodeURIComponent(value)}`);
+          renderGrid([payload.data]);
+          renderDetails(payload.data);
+          showMessage("");
+        } catch (error) {
+          renderGrid([]);
+          showMessage(error.message);
+        }
+      }
+
+      async function filterByClass() {
+        const value = classSelect.value;
+        searchInput.value = "";
+
+        if (!value) {
+          renderGrid(allElements);
+          showMessage("");
+          return;
+        }
+
+        try {
+          const payload = await fetchJson(`/classes/${encodeURIComponent(value)}`);
+          renderGrid(payload.data);
+          showMessage("");
+        } catch (error) {
+          renderGrid([]);
+          showMessage(error.message);
+        }
+      }
+
+      searchInput.addEventListener("input", () => {
+        window.clearTimeout(searchInput.searchTimeout);
+        searchInput.searchTimeout = window.setTimeout(searchElement, 250);
+      });
+
+      classSelect.addEventListener("change", filterByClass);
+
+      resetButton.addEventListener("click", () => {
+        searchInput.value = "";
+        classSelect.value = "";
+        renderGrid(allElements);
+        showMessage("");
+        details.innerHTML = '<p class="details-empty">Selectionne un element pour voir les informations de la route.</p>';
+      });
+
+      loadAllElements();
+    </script>
+  </body>
+</html>
