@@ -1,6 +1,12 @@
-# API Python - Tableau periodique
+# API FastAPI - Tableau periodique
 
-Petite API Python sans dependance externe pour consulter les elements du tableau periodique.
+Petite API FastAPI pour consulter les elements du tableau periodique.
+
+## Installer les dependances
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Lancer le serveur
 
@@ -20,6 +26,12 @@ Tu peux changer le port :
 PORT=4000 python3 app.py
 ```
 
+Tu peux aussi lancer directement avec uvicorn :
+
+```bash
+uvicorn app:app --reload --host 127.0.0.1 --port 3000
+```
+
 ## Page web
 
 Ouvre :
@@ -29,6 +41,12 @@ http://127.0.0.1:3000
 ```
 
 La page permet de tester les routes, chercher un element et filtrer par classe.
+
+FastAPI fournit aussi une documentation automatique :
+
+```text
+http://127.0.0.1:3000/docs
+```
 
 ## Routes API
 

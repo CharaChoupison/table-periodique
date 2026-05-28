@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import json
-import mimetypes
 import os
-import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from periodic_table import CLASS_ALIASES, ELEMENTS
 
@@ -16,13 +17,28 @@ PORT = int(os.environ.get("PORT", "3000"))
 BASE_DIR = Path(__file__).parent
 PUBLIC_DIR = BASE_DIR / "public"
 
+app = FastAPI(
+    title="API Tableau Periodique",
+    description="API pour consulter les elements du tableau periodique.",
+    version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
+
 
 def normalize(value: str) -> str:
     return value.strip().lower()
 
 
 def find_element(identifier: str) -> dict | None:
-    value = normalize(unquote(identifier))
+    value = normalize(identifier)
 
     if value.isdigit():
         atomic_number = int(value)
@@ -32,7 +48,7 @@ def find_element(identifier: str) -> dict | None:
 
 
 def find_elements_by_class(class_name: str) -> list[dict]:
-    value = normalize(unquote(class_name))
+    value = normalize(class_name)
     canonical_class = CLASS_ALIASES.get(value, value)
 
     return [
@@ -42,84 +58,38 @@ def find_elements_by_class(class_name: str) -> list[dict]:
     ]
 
 
-class PeriodicTableHandler(BaseHTTPRequestHandler):
-    def send_json(self, status_code: int, payload: dict | list) -> None:
-        body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def send_file(self, path: Path) -> None:
-        if not path.exists() or not path.is_file():
-            self.send_json(404, {"error": "Fichier introuvable"})
-            return
-
-        content = path.read_bytes()
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(content)))
-        self.end_headers()
-        self.wfile.write(content)
-
-    def do_GET(self) -> None:
-        parsed_url = urlparse(self.path)
-        path = parsed_url.path.strip("/")
-        segments = [segment for segment in path.split("/") if segment]
-
-        if not segments:
-            self.send_file(PUBLIC_DIR / "index.html")
-            return
-
-        if segments == ["elements"]:
-            self.send_json(200, {"count": len(ELEMENTS), "data": ELEMENTS})
-            return
-
-        if len(segments) == 2 and segments[0] == "elements":
-            element = find_element(segments[1])
-
-            if element is None:
-                self.send_json(404, {"error": "Aucun element trouve pour ce numero atomique ou ce symbole"})
-                return
-
-            self.send_json(200, {"data": element})
-            return
-
-        if len(segments) == 2 and segments[0] == "classes":
-            elements = find_elements_by_class(segments[1])
-
-            if not elements:
-                self.send_json(404, {"error": "Aucun element trouve pour cette classe"})
-                return
-
-            self.send_json(200, {"count": len(elements), "data": elements})
-            return
-
-        static_path = (PUBLIC_DIR / unquote(path)).resolve()
-        if PUBLIC_DIR in static_path.parents or static_path == PUBLIC_DIR:
-            self.send_file(static_path)
-            return
-
-        self.send_json(404, {"error": "Route introuvable"})
+@app.get("/", include_in_schema=False)
+def home() -> FileResponse:
+    return FileResponse(PUBLIC_DIR / "index.html")
 
 
-def run() -> None:
-    try:
-        server = ThreadingHTTPServer((HOST, PORT), PeriodicTableHandler)
-    except OSError as error:
-        if error.errno in {48, 98, 10048}:
-            print(f"Le port {PORT} est deja utilise.")
-            print(f"Relance avec un autre port : PORT=4000 python3 app.py")
-            sys.exit(1)
-        raise
+@app.get("/elements", tags=["elements"])
+def get_all_elements() -> dict:
+    return {"count": len(ELEMENTS), "data": ELEMENTS}
 
-    print(f"API Python lancee sur http://{HOST}:{PORT}")
-    server.serve_forever()
+
+@app.get("/elements/{identifier}", tags=["elements"])
+def get_element(identifier: str) -> dict:
+    element = find_element(identifier)
+
+    if element is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Aucun element trouve pour ce numero atomique ou ce symbole",
+        )
+
+    return {"data": element}
+
+
+@app.get("/classes/{class_name}", tags=["classes"])
+def get_elements_by_class(class_name: str) -> dict:
+    elements = find_elements_by_class(class_name)
+
+    if not elements:
+        raise HTTPException(status_code=404, detail="Aucun element trouve pour cette classe")
+
+    return {"count": len(elements), "data": elements}
 
 
 if __name__ == "__main__":
-    run()
+    uvicorn.run("app:app", host=HOST, port=PORT, reload=True)

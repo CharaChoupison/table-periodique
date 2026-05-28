@@ -306,7 +306,7 @@
       const resultCount = document.querySelector("#resultCount");
       const apiStatus = document.querySelector("#apiStatus");
       const message = document.querySelector("#message");
-      const apiBaseUrl = window.location.port === "3000" ? "" : "http://127.0.0.1:3000";
+      const apiBaseUrl = ["5500", "5501"].includes(window.location.port) ? "http://127.0.0.1:3000" : "";
 
       let allElements = [];
 
@@ -321,7 +321,7 @@
         const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(payload.error || "Erreur API");
+          throw new Error(payload.error || payload.detail || "Erreur API");
         }
 
         return payload;
